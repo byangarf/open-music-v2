@@ -23,7 +23,6 @@ exports.up = (pgm) => {
     // eslint-disable-next-line camelcase
     album_id: {
       type: 'VARCHAR(50)',
-      notNull: true,
     },
     title: {
       type: 'TEXT',
@@ -46,9 +45,12 @@ exports.up = (pgm) => {
       notNull: true,
     },
   });
+
+  pgm.addConstraint('song', 'fk_song.album_id_album.id', 'FOREIGN KEY(album_id) REFERENCES album(id) ON DELETE CASCADE');
 };
 
 exports.down = (pgm) => {
+  pgm.dropConstraint('song', 'fk_song.album_id');
   pgm.dropTable('song');
   pgm.dropTable('album');
 

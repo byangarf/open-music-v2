@@ -2,9 +2,11 @@ const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
+const AuthorizationError = require('../../exceptions/AuthorizationError');
 class MusicService {
-  constructor() {
+  constructor(collaborationService) {
     this._pool = new Pool();
+    this._collaborationService = collaborationService;
   }
 
   async addAlbum({ name, year }){
@@ -34,9 +36,9 @@ class MusicService {
 
   }
 
-  async addSong({ title, year, performer, genre, duration }){
+  async addSong({ title, year, performer, genre, duration, albumId }){
     const id = `song-${nanoid(16)}`;
-    const albumId = `album-${nanoid(16)}`;
+    //const albumId = `album-${nanoid(16)}`;
 
     const query = {
       text: 'INSERT INTO song (id, album_id, title, year, performer, genre, duration) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
@@ -201,6 +203,66 @@ class MusicService {
       throw new NotFoundError('Lagu gagal dihapus. Id tidak ditemukan');
     }
   }
+
+  async verifyAlbumOwner(id, owner) {
+    const query = {
+      text: 'SELECT * FROM album WHERE id = $1',
+      values: [id],
+    };
+    const result = await this._pool.query(query);
+    if (!result.rows.length) {
+      throw new NotFoundError('Album tidak ditemukan');
+    }
+    const album = result.rows[0];
+    if (album.owner !== owner) {
+      throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+    }
+  }
+  async verifySongOwner(id, owner) {
+    const query = {
+      text: 'SELECT * FROM song WHERE id = $1',
+      values: [id],
+    };
+    const result = await this._pool.query(query);
+    if (!result.rows.length) {
+      throw new NotFoundError('Lagu tidak ditemukan');
+    }
+    const song = result.rows[0];
+    if (song.owner !== owner) {
+      throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+    }
+  }
+  async verifyAlbumAccess(albumId, userId) {
+    try {
+      await this.verifyAlbumOwner(albumId, userId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      try {
+        await this._collaborationService.verifyCollaborator(albumId, userId);
+      } catch {
+        throw error;
+      }
+    }
+  }
+
+  async verifySongAccess(songId, userId) {
+    try {
+      await this.verifySongOwner(songId, userId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      try {
+        await this._collaborationService.verifyCollaborator(songId, userId);
+      } catch {
+        throw error;
+      }
+    }
+  }
+
+
 }
 
 module.exports = MusicService;

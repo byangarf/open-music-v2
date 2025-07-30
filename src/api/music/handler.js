@@ -33,7 +33,6 @@ class MusicHandler{
     try {
       this._validator.validateAlbumPayload(request.payload);
       const { name, year } = request.payload;
-
       const albumId = await this._service.addAlbum({ name, year });
 
       const response = h.response({
@@ -50,7 +49,7 @@ class MusicHandler{
         status: 'fail',
         message: error.message,
       });
-      response.code(400);
+      response.code(error.statusCode);
       return response;
     }
   }
@@ -59,7 +58,6 @@ class MusicHandler{
     try {
       this._validator.validateSongPayload(request.payload);
       const { title, year, performer, genre, duration } = request.payload;
-
       const songId = await this._service.addSong({ title, year, performer, genre, duration });
 
       const response = h.response({
@@ -135,7 +133,6 @@ class MusicHandler{
     try {
       this._validator.validateAlbumPayload(request.payload);
       const { id } = request.params;
-
       await this._service.editAlbumById(id, request.payload);
 
       return {
@@ -176,6 +173,7 @@ class MusicHandler{
   async deleteAlbumByIdHandler(request, h) {
     try {
       const { id } = request.params;
+
       await this._service.deleteAlbumById(id);
       return {
         status: 'success',
